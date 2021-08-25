@@ -1,0 +1,63 @@
+version: '3'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    networks:
+      - django-nginx
+    volumes:
+      - .:/code
+      - django-static:/backend/static
+    depends_on:
+      - db
+    env_file:
+      - ./backend/.prod.env
+
+  db:
+    image: postgres
+    networks:
+      - django-nginx
+    env_file:
+      - ./envs/.postgres
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - 80:80
+    networks:
+      - django-nginx
+    volumes:
+      - ./nginx/nginx-conf.conf:/etc/nginx/nginx.conf:ro
+      - django-static:/usr/src/app/static
+    depends_on:
+      - backend
+
+  celery:
+    build: 
+      context: ./backend
+    command: celery -A core worker -l INFO
+    volumes:
+        - .:/usr/src/app
+    env_file:
+      - ./backend/.prod.env
+    depends_on:
+        - backend
+        - redis
+
+  redis:
+    image: "redis"
+    ports:
+      - "6379:6379"
+    networks:
+      - django-nginx
+
+
+volumes:
+  django-static:
+
+networks:
+  django-nginx:
+    driver: bridge
